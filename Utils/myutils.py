@@ -171,7 +171,6 @@ def evaluate(prediction,result):
     result = set(result)
 
     intersection = prediction & result
-
     precision = float(len(intersection))/len(prediction)*100
     recall = float(len(intersection))/len(result)*100
 
@@ -180,8 +179,10 @@ def evaluate(prediction,result):
     print ('P : %2f' % precision)
     print ('R : %2f' % recall)
     print ('F1: %2f' % F1)
+
+
     return precision, recall, F1
 #先弄100万行，后续用pickle搞
 # CutFile(dir+'/'+'data/raw/tianchi_fresh_comp_train_user.csv',1000000)
-# Getlines(dir+'/'+'data/raw/tianchi_fresh_comp_train_user.csv')
+
 # SortByTime(['2017-09-21 02', '2017-09-15 23', '2017-09-18 04'])
