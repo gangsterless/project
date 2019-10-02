@@ -1,5 +1,6 @@
 import os
 import datetime
+import sys
 dir = os.path.abspath(os.path.dirname(os.path.dirname(__file__)))
 print(dir)
 #行数 23291028,太大了也
@@ -154,6 +155,32 @@ Train Target Span: 12.16
     train_feature_df.to_csv(dir+r"\data\dealeddata\train_feature.csv")
     test_feature_df.to_csv(dir+r"\data\dealeddata\test_feature.csv")
     validation_feature_df.to_csv(dir+r"\data\dealeddata\validation_feature.csv")
+
+#计算召回率
+def computeRecall(P, F1):
+    R = F1*P/(2*P-F1)
+    print ("P: %f"%P)
+    print ("R: %f"%R)
+    print ("F1: %f"%F1)
+#评估结果
+def evaluate(prediction,result):
+
+    print('Prediction set size: %d' % len(prediction))
+    print ('Result set size: %d' % len(result))
+    prediction = set(prediction)
+    result = set(result)
+
+    intersection = prediction & result
+
+    precision = float(len(intersection))/len(prediction)*100
+    recall = float(len(intersection))/len(result)*100
+
+    F1 = 2 * precision * recall / (precision + recall)
+
+    print ('P : %2f' % precision)
+    print ('R : %2f' % recall)
+    print ('F1: %2f' % F1)
+    return precision, recall, F1
 #先弄100万行，后续用pickle搞
 # CutFile(dir+'/'+'data/raw/tianchi_fresh_comp_train_user.csv',1000000)
 # Getlines(dir+'/'+'data/raw/tianchi_fresh_comp_train_user.csv')
