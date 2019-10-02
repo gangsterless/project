@@ -1,7 +1,8 @@
 # project
 this is a project about recommend system
 整体思路是参考
-https://blog.csdn.net/u014374284/article/details/49933487的提取方法
+https://blog.csdn.net/u014374284/article/details/49933487
+的提取方法
 某些地方写的有点儿啰嗦，一方面是想写的清楚一些，没有用很多的pandas的自定义函数，另一方面对此库不太熟悉。
 1 项目结构
 ①data/raw:
