@@ -295,7 +295,7 @@ if __name__=='__main__':
     user_csv,item_csv = LoadData()
     # split_train_and_test(user_csv,item_csv)
     # DataDes(user_csv,item_csv)
-    # DataDes(user_csv,item_csv)
+
     # extract_feature(user_csv,item_csv)
     F_extractor =  Feature_Extractor(user_csv,item_csv)
     # F_extractor.extract_behavior_info()
