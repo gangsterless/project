@@ -1,5 +1,6 @@
 import os
 import datetime
+import pandas as pd
 import sys
 dir = os.path.abspath(os.path.dirname(os.path.dirname(__file__)))
 print(dir)
@@ -120,7 +121,7 @@ Train Target Span: 12.16
             train_feature.append(tmpdf)
         if thistime>train_label_starttime and thistime<train_label_endtime:
             if tmpdf['behavior_type']==4:
-                userdf_isbuy_train_dict[tmpdf['user_id']]=1
+                userdf_isbuy_train_dict[tmpdf['user_id']]=tmpdf['item_id']
 
         if thistime>test_feature_starttime and thistime<test_feature_endtime:
             test_feature.append( tmpdf)
@@ -182,7 +183,17 @@ def evaluate(prediction,result):
 
 
     return precision, recall, F1
+def LoadData():
+    user_train_csv = pd.read_csv('..data/raw/tianchi_fresh_comp_train_user0.csv')
+    #item先不处理吧
+    item_train_csv = pd.read_csv('..data/raw/tianchi_fresh_comp_train_item.csv')
+    #我在想是不是应该在这里就merge一下？？？或许应该是这样
+    #对滴
+    # train_label =  pd.read_csv(itemdir+r'dealeddata/userdf_train_label.csv')
+    return user_train_csv,item_train_csv
 #先弄100万行，后续用pickle搞
 # CutFile(dir+'/'+'data/raw/tianchi_fresh_comp_train_user.csv',1000000)
 
+# user_csv,item_csv = LoadData()
+# split_train_and_test(user_csv,item_csv)
 # SortByTime(['2017-09-21 02', '2017-09-15 23', '2017-09-18 04'])
