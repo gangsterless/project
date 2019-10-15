@@ -5,6 +5,7 @@ import pandas as pd
 from pandas.core.frame import DataFrame
 import numpy as np
 from Utils.PrintInfo import curline
+from  Utils.ConstValues import *
 from sklearn import linear_model
 from sklearn.ensemble import  RandomForestRegressor
 
@@ -120,6 +121,7 @@ class Feature_Extractor:
         from Utils.PrintInfo import curline
         from collections import Counter
         from Utils.myutils import SortByTime
+
         import time
         import datetime
         curline(info= '开始分析每个用户每种行为的个数',isstart=True)
@@ -143,6 +145,11 @@ class Feature_Extractor:
             each_user_visit = self.user.loc[(self.user['user_id'] == each )]
             #浏览
             each_user_read_count = each_user_visit.loc[ each_user_visit['behavior_type']==1].shape[0]
+            #浏览太多可能会有问题,估计是爬虫
+            if each_user_read_count>MAX_HUMAN_VISIT_TIMES:
+                print(str(each)+'  '+str(each_user_read_count))
+                print('这个不要了')
+                continue
             #收藏
             each_user_colection_count = each_user_visit.loc[each_user_visit['behavior_type'] == 2].shape[0]
             #加购物车
@@ -189,6 +196,7 @@ class Feature_Extractor:
         user_behavior_count_df['max_buy_id'] = max_buy_id_list
         user_behavior_count_df['active_grade'] = active_days_list
         user_behavior_count_df['last_buy_diff'] = last_buy_diff_list
+        self.user_behavior_count = user_behavior_count_df
         print(user_behavior_count_df)
 
         curline(info='',isstart=False)
@@ -282,6 +290,21 @@ class Feature_Extractor:
                 catorgory_info['catorgory_collection_times'][rindex] = catorgory_collection_dict[key]
         print(catorgory_info)
         pass
+    #数据相关性分析
+    def Relevance_Analysis(self):
+        #self.user
+        user_behavior_count = self.user_behavior_count
+        cov_between_visit_and_buy = user_behavior_count[0].corr(user_behavior_count['buy_item_count'])
+        userid = user_behavior_count.iloc[:,0].index
+        visit_times = user_behavior_count[0]
+        buy_times = user_behavior_count[3]
+        print(visit_times)
+        print(userid)
+        plt.scatter([i for i in range(len(userid))],visit_times,alpha=0.5,s = 16)
+        plt.scatter([i for i in range(len(userid))], buy_times*50,alpha=0.5,s = 16)
+        # print(cov_between_visit_and_buy)
+        plt.show()
+        pass
         # for each in item['item_id']:
         #     print(each)
 
@@ -291,7 +314,6 @@ class Feature_Extractor:
 
 if __name__=='__main__':
     from Utils.myutils import split_train_and_test
-
     user_csv,item_csv = LoadData()
     # split_train_and_test(user_csv,item_csv)
     # DataDes(user_csv,item_csv)
@@ -306,4 +328,5 @@ if __name__=='__main__':
     # split_train_and_test(user_csv,item_csv)
     # DataDes(user_csv,item_csv)
     # F_extractor.extract_item_info()
-    F_extractor.extract_catorgory_info()
+    F_extractor.extract_behavior_info()
+    F_extractor.Relevance_Analysis()
