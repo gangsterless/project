@@ -6,6 +6,7 @@ from pandas.core.frame import DataFrame
 import numpy as np
 from Utils.PrintInfo import curline
 from  Utils.ConstValues import *
+import seaborn as sns
 from sklearn import linear_model
 from sklearn.ensemble import  RandomForestRegressor
 
@@ -66,10 +67,20 @@ def DataDes(user,item):
     Y = list_year_and_day
     # PlotBar("购买日期情况",X,Y)
 def LoadData():
-    user_csv = pd.read_csv(userdir+r'dealeddata/train_feature.csv')
+    user_train_csv = pd.read_csv(userdir+r'dealeddata/train_feature.csv', index_col=0)
     #item先不处理吧
-    item_csv = pd.read_csv(itemdir+r'raw/tianchi_fresh_comp_train_item.csv')
-    return user_csv,item_csv
+    item_train_csv = pd.read_csv(itemdir+r'raw/tianchi_fresh_comp_train_item.csv', index_col=0)
+    #我在想是不是应该在这里就merge一下？？？或许应该是这样
+    #对滴
+    train_label =  pd.read_csv(itemdir+r'dealeddata/userdf_train_label.csv', index_col=0)
+    mergeres = user_train_csv
+    del mergeres['item_category']
+    mergeres = pd.merge(mergeres, item_train_csv, on='item_id', how='outer')
+    mergeres = pd.merge(mergeres, train_label, on='user_id',how='outer')
+    #两个都有catorgory
+    mergeres = mergeres[['user_id', 'item_id','item_category', 'isbuy']]
+    mergeres.to_csv('mergeres.csv',index=False)
+    return user_train_csv,item_train_csv,mergeres
 class Feature_Extractor:
 
     def __init__(self,user,item):
@@ -176,7 +187,7 @@ class Feature_Extractor:
                 c2  =  len(each_user_buy['item_id'].unique())
                 #获取买的最多商品的id
                 each_user_buy_list =  each_user_buy['item_id'].tolist()
-                max_buy_id =  Counter(each_user_buy_list).most_common(1)
+                max_buy_id =  Counter(each_user_buy_list).most_common(1)[0]
 
                 Add_purchase_list.append(c1-c2)
                 purchase_item_count_list.append(c2)
@@ -193,7 +204,8 @@ class Feature_Extractor:
         user_behavior_count_df  = (pd.DataFrame(totaldict)).T
         user_behavior_count_df['Add_buy'] = Add_purchase_list
         user_behavior_count_df['buy_item_count'] = purchase_item_count_list
-        user_behavior_count_df['max_buy_id'] = max_buy_id_list
+        #先尝试把
+        user_behavior_count_df['item_id'] = max_buy_id_list
         user_behavior_count_df['active_grade'] = active_days_list
         user_behavior_count_df['last_buy_diff'] = last_buy_diff_list
         self.user_behavior_count = user_behavior_count_df
@@ -251,12 +263,13 @@ class Feature_Extractor:
         这样看来大多数商品压根没人买过，其实原因是因为我们的用户数据量截取的太少
         总共也没几个用户当然买的少
         '''
-        print(item_df_info.where(item_df_info['buy_times']>0).dropna())
-        print(item_df_info.where(item_df_info['visit_times']>0).dropna())
-        print(item_df_info.where(item_df_info['collection_times'] > 0).dropna())
-        print(item_df_info.where(item_df_info['cart_times'] > 0).dropna())
-
-        print(item_df_info)
+        # print(item_df_info.where(item_df_info['buy_times']>0).dropna())
+        # print(item_df_info.where(item_df_info['visit_times']>0).dropna())
+        # print(item_df_info.where(item_df_info['collection_times'] > 0).dropna())
+        # print(item_df_info.where(item_df_info['cart_times'] > 0).dropna())
+        #
+        # print(item_df_info)
+        self.item_info = item_df_info
         # item_df_info.to_csv(absdir+r'\data\dealeddata\itemifo.csv')
     #从用户数据出发提取商品种类信息
     def extract_catorgory_info(self):
@@ -300,26 +313,59 @@ class Feature_Extractor:
         buy_times = user_behavior_count[3]
         print(visit_times)
         print(userid)
-        plt.scatter([i for i in range(len(userid))],visit_times,alpha=0.5,s = 16)
-        plt.scatter([i for i in range(len(userid))], buy_times*50,alpha=0.5,s = 16)
-        # print(cov_between_visit_and_buy)
-        plt.show()
-        pass
+        # plt.scatter([i for i in range(len(userid))],visit_times,alpha=0.5,s = 16)
+        # plt.scatter([i for i in range(len(userid))], buy_times*50,alpha=0.5,s = 16)
+        #画分布图
+        for i in range(4):
+            x = user_behavior_count[i]
+            sns.set()  # 切换到seaborn的默认运行配置
+            sns.distplot(x)# 默认
+            plt.xlabel(BEHAVIOR_MAP[i]+" times")
+            plt.ylabel('frequency')
+            plt.title('the distribution of '+BEHAVIOR_MAP[i])
+            plt.xlim(0,max(x))
+            plt.savefig('../graph/'+BEHAVIOR_MAP[i]+'.jpg')
+            plt.close()
+            # 画散点图
+        for i in range(4):
+            x = user_behavior_count[i]
+            plt.ylabel(BEHAVIOR_MAP[i] + " times")
+            plt.xlabel('id')
+            plt.title('the scatter of ' + BEHAVIOR_MAP[i])
+            plt.xlim(0, max(x))
+            plt.scatter([i for i in range(len(userid))], x, alpha=0.5, s=16)
+            plt.savefig('../graph/scatter of' + BEHAVIOR_MAP[i] + '.jpg')
+            plt.close()
+        #相关性分析
+        hitmapTemp =  user_behavior_count.iloc[:,0:4]
+        hitmapData = hitmapTemp.corr()
+        f,ax = plt.subplots(figsize=(12,12))
+        sns.heatmap(hitmapData,vmax = 1,square=True)
+        plt.savefig('../graph/correlation.png')
+        hitmap_dict = hitmapData[3].to_dict()
+        del hitmap_dict[3]
+        print("List the numerical features decendingly by their correlation with Sale Price:\n")
+        for ele in sorted(hitmap_dict.items(), key=lambda x: -abs(x[1])):
+            print(ele)
         # for each in item['item_id']:
         #     print(each)
-
-
-
+    def Feature_merge(self):
+        self.extract_behavior_info()
+        self.extract_item_info()
+        # merge_res = pd.merge(self.user_behavior_count,self.item_info,on = '')
+#       #先来merge一下
+        MergedRes = pd.merge(self.user,self.item,on = 'item_id',how='outer')
+        MergedRes = MergedRes
 
 
 if __name__=='__main__':
     from Utils.myutils import split_train_and_test
-    user_csv,item_csv = LoadData()
-    # split_train_and_test(user_csv,item_csv)
+    user_csv,item_csv,mergeres = LoadData()
+
     # DataDes(user_csv,item_csv)
 
     # extract_feature(user_csv,item_csv)
-    F_extractor =  Feature_Extractor(user_csv,item_csv)
+    # F_extractor =  Feature_Extractor(user_csv,item_csv)
     # F_extractor.extract_behavior_info()
     # F_extractor.extract_geo_info()
     # test = pd.read_csv(r'D:\Data\big3data\recommendsys\project\data\dealeddata' + r'\user_orderedtime.csv')
@@ -328,5 +374,5 @@ if __name__=='__main__':
     # split_train_and_test(user_csv,item_csv)
     # DataDes(user_csv,item_csv)
     # F_extractor.extract_item_info()
-    F_extractor.extract_behavior_info()
-    F_extractor.Relevance_Analysis()
+    # F_extractor.extract_behavior_info()
+    # F_extractor.Relevance_Analysis()
