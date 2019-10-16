@@ -150,12 +150,12 @@ Train Target Span: 12.16
     print(train_feature_df.describe())
     print(test_feature_df.describe())
     print(validation_feature_df.describe())
-    userdf_train_label.to_csv(dir+r'\data\dealeddata\userdf_train_label.csv')
-    userdf_test_label.to_csv(dir+r'\data\dealeddata\userdf_test_label.csv')
-    userdf_validation_label.to_csv(dir+r"\data\dealeddata\userdf_validation_label.csv")
-    train_feature_df.to_csv(dir+r"\data\dealeddata\train_feature.csv")
-    test_feature_df.to_csv(dir+r"\data\dealeddata\test_feature.csv")
-    validation_feature_df.to_csv(dir+r"\data\dealeddata\validation_feature.csv")
+    userdf_train_label.to_csv(dir+r'\data\dealeddata\userdf_train_label.csv',index=False)
+    userdf_test_label.to_csv(dir+r'\data\dealeddata\userdf_test_label.csv',index=False)
+    userdf_validation_label.to_csv(dir+r"\data\dealeddata\userdf_validation_label.csv",index=False)
+    train_feature_df.to_csv(dir+r"\data\dealeddata\train_feature.csv",index=False)
+    test_feature_df.to_csv(dir+r"\data\dealeddata\test_feature.csv",index=False)
+    validation_feature_df.to_csv(dir+r"\data\dealeddata\validation_feature.csv",index=False)
 
 #计算召回率
 def computeRecall(P, F1):
@@ -183,20 +183,21 @@ def evaluate(prediction,result):
 
 
     return precision, recall, F1
-def LoadData():
-    user_train_csv = pd.read_csv('..data/raw/tianchi_fresh_comp_train_user0.csv')
+def loaddata():
+    user_train_csv = pd.read_csv(dir+'/data/raw/tianchi_fresh_comp_train_user0.csv')
     #item先不处理吧
-    item_train_csv = pd.read_csv('..data/raw/tianchi_fresh_comp_train_item.csv')
+    item_train_csv = pd.read_csv(dir+'/data/raw/tianchi_fresh_comp_train_item.csv')
 
     return user_train_csv,item_train_csv
 #先弄100万行，后续用pickle搞
+if __name__=='__main__':
 
-'''
-运行下面这句可以把文件分割，注意及时停止，否则会一直分割下去
-'''
-# CutFile(dir+'/'+'data/raw/tianchi_fresh_comp_train_user.csv',1000000)
-'''
-下面这两句话可以load分割后的文件 并且生成测试集，训练集，验证集
-'''
-# user_csv,item_csv = LoadData()
-# split_train_and_test(user_csv,item_csv)
+    '''
+    运行下面这句可以把文件分割，注意及时停止，否则会一直分割下去
+    '''
+    # CutFile(dir+'/'+'data/raw/tianchi_fresh_comp_train_user.csv',1000000)
+    '''
+    下面这两句话可以load分割后的文件 并且生成测试集，训练集，验证集
+    '''
+    # user_csv,item_csv = loaddata()
+    # split_train_and_test(user_csv,item_csv)
