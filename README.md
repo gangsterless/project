@@ -28,4 +28,7 @@ https://blog.csdn.net/u014374284/article/details/49933487
 另外，每次都提交一份最新的merge后的特征向量列表,为了上传方便，不是太大。
 
 
+运行指南：
 
+开始的时候在data/raw/ 里面应该有这两个文件
+!["初始文件示意图"](Sketch Map/sketch.png)
