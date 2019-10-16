@@ -67,15 +67,15 @@ def DataDes(user,item):
     Y = list_year_and_day
     # PlotBar("购买日期情况",X,Y)
 def LoadData():
-    #当有行号时，必须加上最后一个参数
-    user_train_csv = pd.read_csv(userdir+r'dealeddata/train_feature.csv', index_col=0)
+
+    user_train_csv = pd.read_csv(userdir+r'dealeddata/train_feature.csv')
     #item先不处理吧
     item_train_csv = pd.read_csv(itemdir+r'raw/tianchi_fresh_comp_train_item.csv')
     #我在想是不是应该在这里就merge一下？？？或许应该是这样
     #对滴
     #这里应该怎么merge是个问题 train_feature里面的item_id 跟 tianchi_fresh_comp_train_item好多是不对应的，即前者
     #有的后者没有，后者有的前者也不一定有，我们还是要主要提取用户的信息所以，以前者为基准
-    train_label =  pd.read_csv(itemdir+r'dealeddata/userdf_train_label.csv', index_col=0)
+    train_label =  pd.read_csv(itemdir+r'dealeddata/userdf_train_label.csv')
     mergeres = user_train_csv
     #这个数据好迷，同一个item_id在用户信息中和商品信息中对应的类别竟然是不同的
     # 所以删除item_train_csv中的类别信息，否则merge的时候会出现冲突
@@ -118,7 +118,7 @@ class Feature_Extractor:
         # 将用户的浏览时间按日期排序
         i = 1
         for each in self.user_id_set:
-            print(i)
+            # print(i)
             try:
                 each_user_visit = self.user.loc[(self.user['user_id'] == each)]
                 each_user_visit_list = each_user_visit['time'].tolist()
@@ -177,17 +177,19 @@ class Feature_Extractor:
             each_user_info = self.user.loc[(self.user['user_id'] == value)]
             # 浏览
             each_user_read_count = each_user_info.loc[each_user_info['behavior_type'] == 1].shape[0]
-            each_user_colection_count = each_user_info.loc[each_user_info['behavior_type'] == 2].shape[0]
+            #收藏
+            each_user_collection_count = each_user_info.loc[each_user_info['behavior_type'] == 2].shape[0]
             # 加购物车
             each_user_cart_count = each_user_info.loc[each_user_info['behavior_type'] == 3].shape[0]
             # 购买
             each_user_buy = each_user_info.loc[each_user_info['behavior_type'] == 4]
             each_user_buy_count = each_user_buy.shape[0]
 
-            if each_user_read_count > MAX_HUMAN_VISIT_TIMES:
+            #光看不买，必须去除
+            if each_user_read_count > MAX_HUMAN_VISIT_TIMES and each_user_buy_count<10:
                 # print(str(each)+'  '+str(each_user_read_count))
                 # print('这个不要了')
-                continue
+                    continue
                 # 收藏
 
             this_user_info = self.user.loc[self.user['user_id'] == value]
@@ -204,7 +206,7 @@ class Feature_Extractor:
                 each_user_buy_count_1212_list.append(double12_user_info.loc[double12_user_info['behavior_type'] == 4].shape[0])
 
             #近三天信息提取
-            latest3_user_info = this_user_info.loc[this_user_info['time'].apply(lambda x: STARTTIME <=time.strptime(x,"%Y-%m-%d %H")<=ENDTIME)]
+            latest3_user_info = this_user_info.loc[this_user_info['time'].apply(lambda x: TRAINSTARTTIME <= time.strptime(x, "%Y-%m-%d %H") <= TRAINENDTIME)]
 
             if len(latest3_user_info)==0:
                 each_user_visit_count_latest3_list.append(0)
@@ -218,7 +220,7 @@ class Feature_Extractor:
                 each_user_buy_count_latest3_list.append(latest3_user_info.loc[latest3_user_info['behavior_type']==4].shape[0])
 
 
-            activegrade = F_active_grade(each_user_read_count, each_user_colection_count, each_user_cart_count,
+            activegrade = F_active_grade(each_user_read_count, each_user_collection_count, each_user_cart_count,
                                          each_user_buy_count)
             active_days_list.append(activegrade)
             tmplist = []
@@ -265,7 +267,7 @@ class Feature_Extractor:
                 max_buy_id_list.append('')
                 #如果没有买过就填充非数字
                 last_buy_diff_list.append(np.nan)
-            tmplist.extend([each_user_read_count,each_user_colection_count,each_user_cart_count,each_user_buy_count])
+            tmplist.extend([each_user_read_count,each_user_collection_count,each_user_cart_count,each_user_buy_count])
             totaldict[value] = tmplist
         user_behavior_count_df = (pd.DataFrame(totaldict)).T
         user_behavior_count_df['user_id'] = totaldict.keys()
@@ -371,6 +373,13 @@ class Feature_Extractor:
         # print(item_df_info.where(item_df_info['cart_times'] > 0).dropna())
         #
         # print(item_df_info)
+        #一些比例特征
+        #商品被购买与被浏览的比值
+        item_buy_div_visit = list(map(lambda a, b: 0 if b == 0 else a / b, item_df_info['buy_times'],item_df_info['visit_times']))
+        #商品被收藏量与被购买的比例
+        item_colletion_div_visit = list(map(lambda a, b: 0 if b == 0 else a / b, item_df_info['collection_times'], item_df_info['visit_times']))
+        item_df_info['item_buy_div_visit']  = item_buy_div_visit
+        item_df_info['item_colletion_div_visit']  = item_colletion_div_visit
         self.item_info = item_df_info
         # item_df_info.to_csv(absdir+r'\data\dealeddata\itemifo.csv')
     #从用户数据出发提取商品种类信息
@@ -408,6 +417,10 @@ class Feature_Extractor:
         pass
     #数据相关性分析
     def Relevance_Analysis(self):
+        #下面的值要依赖于这两个函数
+        self.extract_behavior_info()
+        self.extract_item_info()
+
         #self.user
         user_behavior_count = self.user_behavior_count
         cov_between_visit_and_buy = user_behavior_count[0].corr(user_behavior_count['buy_item_count'])
@@ -437,21 +450,34 @@ class Feature_Extractor:
             plt.title('the scatter of ' + BEHAVIOR_MAP[i])
             plt.xlim(0, max(x))
             plt.scatter([i for i in range(len(userid))], x, alpha=0.5, s=16)
-            plt.savefig('../graph/scatter of' + BEHAVIOR_MAP[i] + '.jpg')
+            plt.savefig('../graph/scatter of ' + BEHAVIOR_MAP[i] + '.jpg')
             plt.close()
         #相关性分析
-        hitmapTemp =  user_behavior_count.iloc[:,0:4]
+        hitmapTemp =  user_behavior_count.iloc[:,1:5]
         hitmapData = hitmapTemp.corr()
         f,ax = plt.subplots(figsize=(12,12))
+        print(hitmapData)
         sns.heatmap(hitmapData,vmax = 1,square=True)
+        plt.title('note: lighter the block is,stronger the relevance of two behavior type is ')
         plt.savefig('../graph/correlation.png')
         hitmap_dict = hitmapData[3].to_dict()
         del hitmap_dict[3]
-        print("List the numerical features decendingly by their correlation with Sale Price:\n")
-        for ele in sorted(hitmap_dict.items(), key=lambda x: -abs(x[1])):
+        print("List the numerical features decendingly by their correlation with  buy:\n")
+        plt.close()
+        sortedres = sorted(hitmap_dict.items(), key=lambda x: -abs(x[1]))
+        for ele in sortedres:
             print(ele)
+        print('看来还是'+BEHAVIOR_MAP[sortedres[0][0]]+'跟最终购买相关性最大,相关率为'+str(sortedres[0][1]))
         # for each in item['item_id']:
         #     print(each)
+    def dealMissingValue(self):
+        '''
+        处理缺失值
+        不可能只有购买量没有浏览量
+
+        :return:
+        '''
+
     def Feature_merge(self):
         self.extract_behavior_info()
         self.extract_item_info()
@@ -473,8 +499,10 @@ class Feature_Extractor:
 if __name__=='__main__':
     #直接运行就可以在data/dealeddata/下 生成一个merge后的csv，目前特征向量数目较少，但框架基本都有了
     #还有待进一步完善尤其是时间信息，
-    from Utils.myutils import split_train_and_test
 
     user_csv,item_csv,mergeres = LoadData()
+
+
     F_extractor =  Feature_Extractor(user_csv,item_csv,mergeres)
     F_extractor.Feature_merge()
+    # F_extractor.Relevance_Analysis()
