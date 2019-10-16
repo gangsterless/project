@@ -35,17 +35,24 @@ https://blog.csdn.net/u014374284/article/details/49933487
 
 
 
+
 之后运行myutils 里面的cutfile()
+
+
 !["切割文件函数"](https://github.com/gangsterless/project/blob/master/Sketch%20Map/sketch3.png)
 
 
 
 之后应该会多出好多文件保留第0个就成。
+
 !["第0个"](https://github.com/gangsterless/project/blob/master/Sketch%20Map/sketch2.png)
 
 
 
 下一步运行myutils 里面的split_train_and_test(),产生好多文件
+
+
+
 !["运行示意"](https://github.com/gangsterless/project/blob/master/Sketch%20Map/sketch4.png)
 
 
