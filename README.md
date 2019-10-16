@@ -31,4 +31,4 @@ https://blog.csdn.net/u014374284/article/details/49933487
 运行指南：
 
 开始的时候在data/raw/ 里面应该有这两个文件
-!["初始文件示意图"](project/Sketch Map/sketch1.png)
+!["初始文件示意图"](https://github.com/gangsterless/project/blob/master/Sketch%20Map/sketch1.png)
