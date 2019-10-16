@@ -67,25 +67,33 @@ def DataDes(user,item):
     Y = list_year_and_day
     # PlotBar("购买日期情况",X,Y)
 def LoadData():
+    #当有行号时，必须加上最后一个参数
     user_train_csv = pd.read_csv(userdir+r'dealeddata/train_feature.csv', index_col=0)
     #item先不处理吧
-    item_train_csv = pd.read_csv(itemdir+r'raw/tianchi_fresh_comp_train_item.csv', index_col=0)
+    item_train_csv = pd.read_csv(itemdir+r'raw/tianchi_fresh_comp_train_item.csv')
     #我在想是不是应该在这里就merge一下？？？或许应该是这样
     #对滴
+    #这里应该怎么merge是个问题 train_feature里面的item_id 跟 tianchi_fresh_comp_train_item好多是不对应的，即前者
+    #有的后者没有，后者有的前者也不一定有，我们还是要主要提取用户的信息所以，以前者为基准
     train_label =  pd.read_csv(itemdir+r'dealeddata/userdf_train_label.csv', index_col=0)
     mergeres = user_train_csv
-    del mergeres['item_category']
-    mergeres = pd.merge(mergeres, item_train_csv, on='item_id', how='outer')
-    mergeres = pd.merge(mergeres, train_label, on='user_id',how='outer')
+    #这个数据好迷，同一个item_id在用户信息中和商品信息中对应的类别竟然是不同的
+    # 所以删除item_train_csv中的类别信息，否则merge的时候会出现冲突
+    deledcategory_iteminfo =item_train_csv.drop('item_category',axis=1,inplace=False)
+    mergeres = pd.merge(mergeres, deledcategory_iteminfo, on='item_id',how='left')
+    mergeres = pd.merge(mergeres, train_label, on='user_id')
     #两个都有catorgory
-    mergeres = mergeres[['user_id', 'item_id','item_category', 'isbuy']]
-    mergeres.to_csv('mergeres.csv',index=False)
+    mergeres = mergeres[['user_id', 'item_id','item_category','isbuy']]
+    # mergeres.to_csv('mergeres.csv',index=False)
+    print(item_train_csv['item_id'])
+
     return user_train_csv,item_train_csv,mergeres
 class Feature_Extractor:
 
-    def __init__(self,user,item):
+    def __init__(self,user,item,mergeres):
         self.user = user
         self.item = item
+        self.mergeres = mergeres
         self.user_id_set = user['user_id'].unique()
     def extract_geo_info(self):
 
@@ -201,15 +209,20 @@ class Feature_Extractor:
                 last_buy_diff_list.append(np.nan)
             tmplist.extend([each_user_read_count,each_user_colection_count,each_user_cart_count,each_user_buy_count])
             totaldict[each] = tmplist
+
+
         user_behavior_count_df  = (pd.DataFrame(totaldict)).T
+        user_behavior_count_df['user_id'] = totaldict.keys()
+        user_id_col = user_behavior_count_df['user_id']
+        user_behavior_count_df.drop(labels=['user_id'], axis=1, inplace=True)
+        user_behavior_count_df.insert(0, 'user_id', user_id_col)
         user_behavior_count_df['Add_buy'] = Add_purchase_list
         user_behavior_count_df['buy_item_count'] = purchase_item_count_list
         #先尝试把
-        user_behavior_count_df['item_id'] = max_buy_id_list
+        user_behavior_count_df['max_buy_item_id'] = max_buy_id_list
         user_behavior_count_df['active_grade'] = active_days_list
         user_behavior_count_df['last_buy_diff'] = last_buy_diff_list
         self.user_behavior_count = user_behavior_count_df
-        print(user_behavior_count_df)
 
         curline(info='',isstart=False)
     def extract_item_info(self):
@@ -268,7 +281,7 @@ class Feature_Extractor:
         # print(item_df_info.where(item_df_info['collection_times'] > 0).dropna())
         # print(item_df_info.where(item_df_info['cart_times'] > 0).dropna())
         #
-        # print(item_df_info)
+        print(item_df_info)
         self.item_info = item_df_info
         # item_df_info.to_csv(absdir+r'\data\dealeddata\itemifo.csv')
     #从用户数据出发提取商品种类信息
@@ -277,7 +290,7 @@ class Feature_Extractor:
         from collections import Counter
         catorgory_info = pd.DataFrame()
         catorgory_set = self.user['item_category'].unique()
-        catorgory_info['item_category_id'] = catorgory_set
+        catorgory_info['item_category'] = catorgory_set
         # print(catorgory_set)
         catorgory_buy_times_list = [0]*catorgory_set.shape[0]
         catorgory_cart_times_list = [0] * catorgory_set.shape[0]
@@ -302,6 +315,7 @@ class Feature_Extractor:
             if key in catorgory_collection_dict.keys():
                 catorgory_info['catorgory_collection_times'][rindex] = catorgory_collection_dict[key]
         print(catorgory_info)
+        self.catorgory_info  = catorgory_info
         pass
     #数据相关性分析
     def Relevance_Analysis(self):
@@ -352,27 +366,25 @@ class Feature_Extractor:
     def Feature_merge(self):
         self.extract_behavior_info()
         self.extract_item_info()
-        # merge_res = pd.merge(self.user_behavior_count,self.item_info,on = '')
+        self.extract_catorgory_info()
+        self.mergeres = pd.merge(self.mergeres, self.user_behavior_count, on='user_id')
+        self.mergeres = pd.merge(self.mergeres,self.item_info,on = 'item_id')
+        self.mergeres = pd.merge(self.mergeres,self.catorgory_info,on = 'item_category')
+
+        self.mergeres = self.mergeres.drop_duplicates().reset_index(drop=True)
+        self.mergeres.to_csv('../data/dealeddata/mergeddata.csv',index=False)
 #       #先来merge一下
-        MergedRes = pd.merge(self.user,self.item,on = 'item_id',how='outer')
-        MergedRes = MergedRes
+#         self.mergeres = pd.merge(self.mergeres,self.user_behavior_count,on = 'user_id',how='outer')
+#         self.mergeres = pd.merge(self.mergeres, self.user_behavior_count, on='user_id')
+#         self.mergeres = pd.merge(self.mergeres, self.item_info, on='item_id')
+#         self.mergeres.to_csv('mergeres.csv',index=False)
 
 
 if __name__=='__main__':
+    #直接运行就可以在data/dealeddata/下 生成一个merge后的csv，目前特征向量数目较少，但框架基本都有了
+    #还有待进一步完善尤其是时间信息，
     from Utils.myutils import split_train_and_test
+
     user_csv,item_csv,mergeres = LoadData()
-
-    # DataDes(user_csv,item_csv)
-
-    # extract_feature(user_csv,item_csv)
-    # F_extractor =  Feature_Extractor(user_csv,item_csv)
-    # F_extractor.extract_behavior_info()
-    # F_extractor.extract_geo_info()
-    # test = pd.read_csv(r'D:\Data\big3data\recommendsys\project\data\dealeddata' + r'\user_orderedtime.csv')
-    # print(eval(test['v'][0])[0])
-    # print(test.head())
-    # split_train_and_test(user_csv,item_csv)
-    # DataDes(user_csv,item_csv)
-    # F_extractor.extract_item_info()
-    # F_extractor.extract_behavior_info()
-    # F_extractor.Relevance_Analysis()
+    F_extractor =  Feature_Extractor(user_csv,item_csv,mergeres)
+    F_extractor.Feature_merge()
