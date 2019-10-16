@@ -187,13 +187,16 @@ def LoadData():
     user_train_csv = pd.read_csv('..data/raw/tianchi_fresh_comp_train_user0.csv')
     #item先不处理吧
     item_train_csv = pd.read_csv('..data/raw/tianchi_fresh_comp_train_item.csv')
-    #我在想是不是应该在这里就merge一下？？？或许应该是这样
-    #对滴
-    # train_label =  pd.read_csv(itemdir+r'dealeddata/userdf_train_label.csv')
+
     return user_train_csv,item_train_csv
 #先弄100万行，后续用pickle搞
-# CutFile(dir+'/'+'data/raw/tianchi_fresh_comp_train_user.csv',1000000)
 
+'''
+运行下面这句可以把文件分割，注意及时停止，否则会一直分割下去
+'''
+# CutFile(dir+'/'+'data/raw/tianchi_fresh_comp_train_user.csv',1000000)
+'''
+下面这两句话可以load分割后的文件 并且生成测试集，训练集，验证集
+'''
 # user_csv,item_csv = LoadData()
 # split_train_and_test(user_csv,item_csv)
-# SortByTime(['2017-09-21 02', '2017-09-15 23', '2017-09-18 04'])
