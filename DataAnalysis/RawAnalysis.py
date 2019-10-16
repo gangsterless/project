@@ -85,7 +85,7 @@ def LoadData():
     #两个都有catorgory
     mergeres = mergeres[['user_id', 'item_id','item_category','isbuy']]
     # mergeres.to_csv('mergeres.csv',index=False)
-    print(item_train_csv['item_id'])
+    # print(item_train_csv['item_id'])
 
     return user_train_csv,item_train_csv,mergeres
 class Feature_Extractor:
@@ -158,35 +158,81 @@ class Feature_Extractor:
         F_active_grade = lambda x,y,z,q: x+2*y+3*z+4*q
         #上次购买距预测日时长
         last_buy_diff_list = []
-        for each in self.user_id_set:
-            tmpdict = {}
-            tmplist = []
-            each_user_visit = self.user.loc[(self.user['user_id'] == each )]
-            #浏览
-            each_user_read_count = each_user_visit.loc[ each_user_visit['behavior_type']==1].shape[0]
-            #浏览太多可能会有问题,估计是爬虫
-            if each_user_read_count>MAX_HUMAN_VISIT_TIMES:
-                print(str(each)+'  '+str(each_user_read_count))
-                print('这个不要了')
-                continue
-            #收藏
-            each_user_colection_count = each_user_visit.loc[each_user_visit['behavior_type'] == 2].shape[0]
-            #加购物车
-            each_user_cart_count = each_user_visit.loc[each_user_visit['behavior_type'] == 3].shape[0]
-            #购买
-            each_user_buy = each_user_visit.loc[ each_user_visit['behavior_type']==4]
+        ##最大购买量距预测日时长
+        max_buy_sum_diff_list = []
+        #用户发生二次购买商品数占总购买商品数的比值
+        Add_buy_div_buy_times_list = []
+        #双十二期间的四个量
+        each_user_visit_count_1212_list = []
+        each_user_colletion_count_1212_list = []
+        each_user_cart_count_1212_list = []
+        each_user_buy_count_1212_list = []
+        # 近三天期间的四个量
+        each_user_visit_count_latest3_list = []
+        each_user_colletion_count_latest3_list = []
+        each_user_cart_count_latest3_list = []
+        each_user_buy_count_latest3_list = []
+
+        for index,value in enumerate(self.user_id_set):
+            each_user_info = self.user.loc[(self.user['user_id'] == value)]
+            # 浏览
+            each_user_read_count = each_user_info.loc[each_user_info['behavior_type'] == 1].shape[0]
+            each_user_colection_count = each_user_info.loc[each_user_info['behavior_type'] == 2].shape[0]
+            # 加购物车
+            each_user_cart_count = each_user_info.loc[each_user_info['behavior_type'] == 3].shape[0]
+            # 购买
+            each_user_buy = each_user_info.loc[each_user_info['behavior_type'] == 4]
             each_user_buy_count = each_user_buy.shape[0]
-            activegrade =  F_active_grade(each_user_read_count,each_user_colection_count,each_user_cart_count,each_user_buy_count)
+
+            if each_user_read_count > MAX_HUMAN_VISIT_TIMES:
+                # print(str(each)+'  '+str(each_user_read_count))
+                # print('这个不要了')
+                continue
+                # 收藏
+
+            this_user_info = self.user.loc[self.user['user_id'] == value]
+            double12_user_info = this_user_info.loc[this_user_info['time'].apply(lambda x: x[0:10])=='2014-12-12']
+            if  len(double12_user_info)==0:
+                each_user_visit_count_1212_list.append(0)
+                each_user_colletion_count_1212_list.append(0)
+                each_user_cart_count_1212_list.append(0)
+                each_user_buy_count_1212_list.append(0)
+            else:
+                each_user_visit_count_1212_list.append(double12_user_info.loc[double12_user_info['behavior_type']==1].shape[0])
+                each_user_colletion_count_1212_list.append( double12_user_info.loc[double12_user_info['behavior_type'] == 2].shape[0])
+                each_user_cart_count_1212_list.append(double12_user_info.loc[double12_user_info['behavior_type'] == 3].shape[0])
+                each_user_buy_count_1212_list.append(double12_user_info.loc[double12_user_info['behavior_type'] == 4].shape[0])
+
+            #近三天信息提取
+            latest3_user_info = this_user_info.loc[this_user_info['time'].apply(lambda x: STARTTIME <=time.strptime(x,"%Y-%m-%d %H")<=ENDTIME)]
+
+            if len(latest3_user_info)==0:
+                each_user_visit_count_latest3_list.append(0)
+                each_user_colletion_count_latest3_list.append(0)
+                each_user_cart_count_latest3_list.append(0)
+                each_user_buy_count_latest3_list.append(0)
+            else:
+                each_user_visit_count_latest3_list.append(latest3_user_info.loc[latest3_user_info['behavior_type']==1].shape[0])
+                each_user_colletion_count_latest3_list.append(latest3_user_info.loc[latest3_user_info['behavior_type']==2].shape[0])
+                each_user_cart_count_latest3_list.append(latest3_user_info.loc[latest3_user_info['behavior_type']==3].shape[0])
+                each_user_buy_count_latest3_list.append(latest3_user_info.loc[latest3_user_info['behavior_type']==4].shape[0])
+
+
+            activegrade = F_active_grade(each_user_read_count, each_user_colection_count, each_user_cart_count,
+                                         each_user_buy_count)
             active_days_list.append(activegrade)
+            tmplist = []
+
+            #浏览太多可能会有问题,估计是爬虫
+
             #加购量
             if each_user_buy_count>0:
                 #挑选出最近一次购买时间,精确到小时
                 each_user_buy_list = each_user_buy['time'].tolist()
                 sortedlast = SortByTime(each_user_buy_list)[-1]
                 last_buy_time = time.strptime(sortedlast, "%Y-%m-%d %H")
-                predictday = time.strptime('2014-12-18 00', "%Y-%m-%d %H")
                 time1 = datetime.datetime(last_buy_time[0], last_buy_time[1], last_buy_time[2],last_buy_time[3])
-                time2 = datetime.datetime(predictday[0], predictday[1], predictday[2],predictday[3])
+                time2 = datetime.datetime(PREDICTDAY[0], PREDICTDAY[1], PREDICTDAY[2], PREDICTDAY[3])
                 #最后一次买的时间距预测时间的时长，单位是小时
                 last_buy_diff_list.append((time2-time1).days*24+(time2-time1).seconds//3600)
                 #买了几种商品
@@ -195,35 +241,78 @@ class Feature_Extractor:
                 c2  =  len(each_user_buy['item_id'].unique())
                 #获取买的最多商品的id
                 each_user_buy_list =  each_user_buy['item_id'].tolist()
+                #二次购买的量占总购买量的比例
+                add_buy_count_list =  [i-1 for i in Counter(each_user_buy_list).values() if i>1]
+                add_buy_times = sum(add_buy_count_list)
+                Add_buy_div_buy_times_list.append(add_buy_times/sum( Counter(each_user_buy_list).values()))
                 max_buy_id =  Counter(each_user_buy_list).most_common(1)[0]
-
+                #获取最大购买量发生的时间，如果有多个选取离预测日期最近的一个
+                max_buy_sum_time = list(each_user_buy.loc[each_user_buy['item_id']==max_buy_id[0]]['time'])
+                max_buy_sum_time = SortByTime(max_buy_sum_time)[-1]
+                max_buy_sum_time = time.strptime(str(max_buy_sum_time), "%Y-%m-%d %H")
+                time3 = datetime.datetime(max_buy_sum_time[0], max_buy_sum_time[1], max_buy_sum_time[2], max_buy_sum_time[3])
+                max_buy_sum_diff_list.append((time2 - time3).days * 24 + (time2 - time1).seconds // 3600)
                 Add_purchase_list.append(c1-c2)
                 purchase_item_count_list.append(c2)
                 max_buy_id_list.append(max_buy_id)
 
+
             else:
+                Add_buy_div_buy_times_list.append(0)
                 Add_purchase_list.append(0)
+                max_buy_sum_diff_list.append(np.nan)
                 purchase_item_count_list.append(0)
                 max_buy_id_list.append('')
                 #如果没有买过就填充非数字
                 last_buy_diff_list.append(np.nan)
             tmplist.extend([each_user_read_count,each_user_colection_count,each_user_cart_count,each_user_buy_count])
-            totaldict[each] = tmplist
-
-
-        user_behavior_count_df  = (pd.DataFrame(totaldict)).T
+            totaldict[value] = tmplist
+        user_behavior_count_df = (pd.DataFrame(totaldict)).T
         user_behavior_count_df['user_id'] = totaldict.keys()
         user_id_col = user_behavior_count_df['user_id']
         user_behavior_count_df.drop(labels=['user_id'], axis=1, inplace=True)
         user_behavior_count_df.insert(0, 'user_id', user_id_col)
+        # 双十二用户浏览次数
+        user_behavior_count_df['each_user_visit_count_1212'] = each_user_visit_count_1212_list
+        user_behavior_count_df['each_user_colletion_count_1212'] = each_user_colletion_count_1212_list
+        user_behavior_count_df['each_user_cart_count_1212'] = each_user_cart_count_1212_list
+        user_behavior_count_df['each_user_buy_count_1212'] = each_user_buy_count_1212_list
+        #近三天的相关信息
+        user_behavior_count_df['each_user_visit_count_latest3'] = each_user_visit_count_latest3_list
+        user_behavior_count_df['each_user_colletion_count_latest3'] = each_user_colletion_count_latest3_list
+        user_behavior_count_df['each_user_cart_count_latest3'] = each_user_cart_count_latest3_list
+        user_behavior_count_df['each_user_buy_count_latest3'] = each_user_buy_count_latest3_list
+        # 购买量与浏览量比值
+        buy_div_visit_times  = list(map(lambda a, b:0 if b==0 else a / b,user_behavior_count_df[3],user_behavior_count_df[0]))
+        # 购买量与收藏量比值
+        buy_div_colletion_times = list(map(lambda a, b: 0 if b == 0 else a / b, user_behavior_count_df[3], user_behavior_count_df[1]))
+        # 购买量与购物车量比值
+        buy_div_cart_times = list(map(lambda a, b: 0 if b == 0 else a / b, user_behavior_count_df[3], user_behavior_count_df[2]))
+        #双十二浏览量与总浏览量比值
+        double12_visit_div_visit = list(map(lambda a, b: 0 if b == 0 else a / b,user_behavior_count_df['each_user_visit_count_1212'],
+                                            user_behavior_count_df[0]))
+        # 双十二购买量与总购买量比值
+        double12_buy_div_buy = list(map(lambda a, b: 0 if b == 0 else a / b, user_behavior_count_df['each_user_buy_count_1212']
+                                        , user_behavior_count_df[3]))
+        #最大购买量距预测日时长
+        user_behavior_count_df['max_buy_sum_diff'] = max_buy_sum_diff_list
+        # 用户发生二次购买商品数占总购买商品数的比值
+        user_behavior_count_df['add_buy_div_buy_times'] = Add_buy_div_buy_times_list
+
+        # print(buy_div_visit_times)
+        user_behavior_count_df['buy_div_visit_times'] = buy_div_visit_times
+        user_behavior_count_df['buy_div_colletion_times'] = buy_div_colletion_times
+        user_behavior_count_df['buy_div_cart_times'] = buy_div_cart_times
+        user_behavior_count_df['double12_visit_div_visit'] = double12_visit_div_visit
+        user_behavior_count_df['double12_buy_div_buy'] = double12_buy_div_buy
         user_behavior_count_df['Add_buy'] = Add_purchase_list
         user_behavior_count_df['buy_item_count'] = purchase_item_count_list
+
         #先尝试把
         user_behavior_count_df['max_buy_item_id'] = max_buy_id_list
         user_behavior_count_df['active_grade'] = active_days_list
         user_behavior_count_df['last_buy_diff'] = last_buy_diff_list
         self.user_behavior_count = user_behavior_count_df
-
         curline(info='',isstart=False)
     def extract_item_info(self):
         from Utils.PrintInfo import curline
@@ -281,7 +370,7 @@ class Feature_Extractor:
         # print(item_df_info.where(item_df_info['collection_times'] > 0).dropna())
         # print(item_df_info.where(item_df_info['cart_times'] > 0).dropna())
         #
-        print(item_df_info)
+        # print(item_df_info)
         self.item_info = item_df_info
         # item_df_info.to_csv(absdir+r'\data\dealeddata\itemifo.csv')
     #从用户数据出发提取商品种类信息
@@ -314,7 +403,7 @@ class Feature_Extractor:
                 catorgory_info['catorgory_visit_times'][rindex] = catorgory_visit_dict[key]
             if key in catorgory_collection_dict.keys():
                 catorgory_info['catorgory_collection_times'][rindex] = catorgory_collection_dict[key]
-        print(catorgory_info)
+        # print(catorgory_info)
         self.catorgory_info  = catorgory_info
         pass
     #数据相关性分析
@@ -325,8 +414,8 @@ class Feature_Extractor:
         userid = user_behavior_count.iloc[:,0].index
         visit_times = user_behavior_count[0]
         buy_times = user_behavior_count[3]
-        print(visit_times)
-        print(userid)
+        # print(visit_times)
+        # print(userid)
         # plt.scatter([i for i in range(len(userid))],visit_times,alpha=0.5,s = 16)
         # plt.scatter([i for i in range(len(userid))], buy_times*50,alpha=0.5,s = 16)
         #画分布图
@@ -372,6 +461,7 @@ class Feature_Extractor:
         self.mergeres = pd.merge(self.mergeres,self.catorgory_info,on = 'item_category')
 
         self.mergeres = self.mergeres.drop_duplicates().reset_index(drop=True)
+        # if not os.path.exists('../data/dealeddata/mergeddata.csv'):
         self.mergeres.to_csv('../data/dealeddata/mergeddata.csv',index=False)
 #       #先来merge一下
 #         self.mergeres = pd.merge(self.mergeres,self.user_behavior_count,on = 'user_id',how='outer')
